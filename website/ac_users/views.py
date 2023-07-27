@@ -1,40 +1,84 @@
+from django.forms import model_to_dict
+from rest_framework import generics, viewsets, mixins, status
 from django.shortcuts import render
-from rest_framework.generics import CreateAPIView, UpdateAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import action
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser, IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import status
-from .models import CustomUser
+from rest_framework.views import APIView
+from rest_framework.viewsets import GenericViewSet
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from knox import views as knox_views
-from django.contrib.auth import login
-
-from .serializers import CreateUserSerializer, UpdateUserSerializer, LoginSerializer
-
-
-class CreateUserAPI(CreateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = CreateUserSerializer
-    permission_classes = (AllowAny,)
+from .models import User
+from .permissions import IsAdminOrReadOnly, IsOwnerOrReadOnly
+from .serializers import CustomUserSerializer, CustomTokenObtainPairSerializer, RegisterSerializer
 
 
-class UpdateUserAPI(UpdateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UpdateUserSerializer
+
+class LoginView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
-class LoginAPIView(knox_views.LoginView):
+class RegisterView(CreateAPIView):
+    serializer_class = RegisterSerializer
     permission_classes = (AllowAny, )
-    serializer_class = LoginSerializer
 
-    def post(self, request, format=None):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            user = serializer.validated_data['user']
-            login(request, user)
-            response = super().post(request, format=None)
-        else:
-            return Response({'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        serializer: RegisterSerializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        return Response(response.data, status=status.HTTP_200_OK)
+        user: User = serializer.create(
+            validated_data=serializer.validated_data
+        )
+        # if serializer.validated_data.get('role') == 'teacher':
+        #     teacher: Teachers = serializer.create_teacher(
+        #         validated_data=serializer.validated_data, user=user
+        #     )
+
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=status.HTTP_201_CREATED)
+
+
+# class CustomUserAPIList(generics.ListCreateAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+#     permission_classes = (IsAuthenticatedOrReadOnly, )
+#
+#
+# class CustomUserAPIUpdate(generics.RetrieveUpdateAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+#     permission_classes = (IsAuthenticated, )
+#     # authentication_classes = (TokenAuthentication, )
+#
+#
+# class WomenAPIDestroy(generics.RetrieveDestroyAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+#     # permission_classes = (IsAdminOrReadOnly, )
+#
+#
+# class CreateUserAPI(CreateAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+#     permission_classes = (IsAuthenticated, )
+#     # authentication_classes = (TokenAuthentication, )
+
+
+# class CreateUserAPI(CreateAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+#     # permission_classes = (AllowAny,)
+#
+#
+# class UpdateUserAPI(UpdateAPIView):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = CustomUserSerializer
+
 
 

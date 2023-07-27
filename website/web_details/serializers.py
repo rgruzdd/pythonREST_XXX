@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import *
-from students.models import Students
-from teachers.models import Teachers
+from ac_users.serializers import CustomUserSerializer
+from ac_users.models import User
 
 
 class LectureSerializer(serializers.ModelSerializer):
@@ -29,15 +29,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ['name', 'course_students', 'course_teachers', 'course_lectures']
-
-
-class PersonaCourseSerializer(serializers.ModelSerializer):
-    course_name = serializers.CharField(source="course.name", read_only=True)
-
-    class Meta:
-        model = Students
-        fields = ['course_name']
+        fields = ['name','course_students', 'course_teachers', 'course_lectures']
 
 
 class MarkSerializer(serializers.ModelSerializer):
@@ -53,3 +45,22 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['user', 'body', 'date', 'mark']
+
+
+class CourseTeachersSerializer(serializers.ModelSerializer):
+    user = CustomUserSerializer(User)
+    teacher_name = serializers.CharField(source="user.name", read_only=True)
+    course_name = serializers.CharField(source="course.name", read_only=True)
+
+    class Meta:
+        model = CourseTeachers
+        fields = ['user', 'course', 'teacher_name', 'course_name']
+
+
+class CourseStudentsSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="user.name", read_only=True)
+    course_name = serializers.CharField(source="course.name", read_only=True)
+
+    class Meta:
+        model = CourseStudents
+        fields = ['user', 'course', 'student_name', 'course_name']

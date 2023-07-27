@@ -1,6 +1,6 @@
 from django.db import models
 
-from ac_users.models import CustomUser
+from ac_users.models import User
 
 
 class Course(models.Model):
@@ -8,6 +8,22 @@ class Course(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CourseTeachers(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="teacher_courses")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="course_teachers")
+
+    def __str__(self):
+        return self
+
+
+class CourseStudents(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="student_courses")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="course_students")
+
+    def __str__(self):
+        return self
 
 
 class Lecture(models.Model):
@@ -22,7 +38,7 @@ class Lecture(models.Model):
 
 class Homework(models.Model):
     solution_link = models.CharField(max_length=500)
-    student_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    student_user = models.ForeignKey(User, on_delete=models.CASCADE)
     lecture = models.ForeignKey(Lecture, related_name="homeworks", on_delete=models.CASCADE)
 
     def __str__(self):
@@ -40,7 +56,7 @@ class Mark(models.Model):
 class Comment(models.Model):
     body = models.CharField(max_length=200)
     date = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     mark = models.ForeignKey(Mark, related_name='comments', on_delete=models.CASCADE, default=None)
 
     def __str__(self):

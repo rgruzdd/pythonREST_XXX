@@ -1,65 +1,69 @@
+from django.contrib.auth.password_validation import validate_password
+from django.db import models
+from django.db.models import CharField, EmailField
 from rest_framework import serializers
-from .models import CustomUser
-from django.contrib.auth import authenticate
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import JSONParser
+from rest_framework.renderers import JSONRenderer
+from rest_framework.serializers import ModelSerializer
+from rest_framework.validators import UniqueValidator
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
+class CustomUserSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+
     class Meta:
-        model = CustomUser
-        fields = ('id', 'email', 'first_name', 'last_name', 'status')
-
-
-class CreateUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
+        model = User
         fields = '__all__'
-        extra_kwargs = {
-            'password': {'required': True}
-        }
 
-    def validate(self, attrs):
-        email = attrs.get('email', '').strip().lower()
-        if CustomUser.objects.filter(email=email).exists():
-            raise serializers.ValidationError('User with this email id already exists.')
-        return attrs
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user: User):
+        token = super().get_token(user)
+        token['name'] = user.username
+        token['email'] = user.email
+        token['user_id'] = user.id
+        return token
+
+
+class RegisterSerializer(ModelSerializer):
+    email = EmailField(blank=True, validators=[UniqueValidator(queryset=User.objects.all())])
+    password = CharField(blank=True, validators=[validate_password])
+
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'username', 'password',  'email', 'role')
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(**validated_data)
+        user: User = User.objects.create(
+            username=validated_data.get('username'),
+            email=validated_data.get('email'),
+            first_name=validated_data.get('first_name'),
+            last_name=validated_data.get('last_name'),
+            role = validated_data.get('role'),
+        )
+
+        user.set_password(validated_data.get('password'))
+        user.save()
+
         return user
 
+    # def create_teacher(self, validated_data, user: User):
+    #     teacher: Teachers = Teachers.objects.create(
+    #         first_name=validated_data.get('first_name'),
+    #         last_name=validated_data.get('last_name'),
+    #         email=validated_data.get('email'),
+    #         username=validated_data.get('username'),
+    #         user_id=user.id
+    #     )
+    #
+    #     teacher.save()
+    #
+    #     return teacher
 
-class UpdateUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ('first_name', 'last_name', 'email', 'status', 'password')
-
-    def update(self, instance, validated_data):
-        password = validated_data.pop('password')
-        if password:
-            instance.set_password(password)
-        instance = super().update(instance, validated_data)
-        return instance
 
 
-class LoginSerializer(serializers.Serializer):
-
-    email = serializers.EmailField()
-    password = serializers.CharField(style={'input_type': 'password'}, trim_whitespace=False)
-
-    def validate(self, attrs):
-        email = attrs.get('email').lower()
-        password = attrs.get('password')
-
-        if not email or not password:
-            raise serializers.ValidationError("Please give both email and password.")
-
-        if not CustomUser.objects.filter(email=email).exists():
-            raise serializers.ValidationError('Email does not exist.')
-
-        user = authenticate(request=self.context.get('request'), email=email,
-                            password=password)
-        if not user:
-            raise serializers.ValidationError("Wrong Credentials.")
-
-        attrs['user'] = user
-        return attrs
