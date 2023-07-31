@@ -8,7 +8,6 @@ router = routers.SimpleRouter()
 router.register(r'courses', AllCoursesViewSet)
 
 
-
 urlpatterns = [
     path("courses/", include(router.urls)),
     path("courses/<int:pk>/", views.CourseDetailView.as_view()),
